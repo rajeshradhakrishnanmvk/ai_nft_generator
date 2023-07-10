@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.18;
 
-import "./NFT.sol";
+import "./RoyaltyNFT.sol";
 
 contract Marketplace {
-    NFT public nft;
+    RoyaltyNFT public nft;
 
     mapping(uint256 => bool) public isListed;
     mapping(uint256 => uint256) public cost;
     mapping(uint256 => address) public lister;
 
     constructor(address _nft) {
-        nft = NFT(_nft);
+        nft = RoyaltyNFT(_nft);
     }
 
     function list(uint256 _tokenId, uint256 _cost) public {

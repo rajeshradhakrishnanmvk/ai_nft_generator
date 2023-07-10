@@ -7,9 +7,11 @@ import axios from 'axios';
 // Components
 import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
+import Card from 'react-bootstrap/Card';
 
 // ABIs
-import NFT from './abis/NFT.json'
+import NFT from './abis/RoyaltyNFT.json'
+import Marketplace from './abis/Marketplace.json'
 
 // Config
 import config from './config.json';
@@ -18,6 +20,8 @@ function App() {
   const [provider, setProvider] = useState(null)
   const [account, setAccount] = useState(null)
   const [nft, setNFT] = useState(null)
+  const [nfts, setNFTS] = useState(null)
+  const [marketplace, setMarketplace] = useState(null)
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
@@ -27,6 +31,10 @@ function App() {
   const [message, setMessage] = useState("")
   const [isWaiting, setIsWaiting] = useState(false)
 
+  const [end, setEnd] = useState(4)
+  const [count] = useState(4)
+  const [collection, setCollection] = useState([])
+
   const loadBlockchainData = async () => {
     const provider = new ethers.providers.Web3Provider(window.ethereum)
     setProvider(provider)
@@ -35,6 +43,40 @@ function App() {
 
     const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider)
     setNFT(nft)
+
+    const marketplace = new ethers.Contract(config[network.chainId].marketplace.address, Marketplace, provider)
+    setNFT(marketplace)
+
+    getAllNFTs()
+  }
+
+  const structuredNfts = (nfts) => {
+    return nfts
+      .map((nft) => ({
+        id: Number(nft.id),
+        owner: nft.owner.toLowerCase(),
+        cost: window.web3.utils.fromWei(nft.cost),
+        title: nft.title,
+        description: nft.description,
+        metadataURI: nft.metadataURI,
+        timestamp: nft.timestamp,
+      }))
+      .reverse()
+  }
+
+  const getAllNFTs = async () => {
+    try {
+
+      const nfts = await nft.getAllNFTs().call()
+
+      setNFTS(structuredNfts(nfts))
+
+    } catch (error) {
+      reportError(error)
+    }
+  }
+  const getCollection = () => {
+    return nfts?.slice(0, end)
   }
 
   const submitHandler = async (e) => {
@@ -54,7 +96,7 @@ function App() {
     const url = await uploadImage(imageData)
 
     // Mint NFT
-    await mintImage(url)
+    await mintImage(url, name, description)
 
     setIsWaiting(false)
     setMessage("")
@@ -111,17 +153,20 @@ function App() {
     return url
   }
 
-  const mintImage = async (tokenURI) => {
+  const mintImage = async (tokenURI, title, description) => {
     setMessage("Waiting for Mint...")
 
     const signer = await provider.getSigner()
-    const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("1", "ether") })
+    //.mintNFTWithRoyalty(deployer.address, METADATA_URL, artist.address, ROYALTY_FEE, { value: COST })
+    //const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("1", "ether") })
+    const transaction = await nft.connect(signer).mintNFTWithRoyalty(signer.address, tokenURI, signer.address, 500, title, description, { value: ethers.utils.parseUnits("1", "ether") })
     await transaction.wait()
   }
 
   useEffect(() => {
     loadBlockchainData()
-  }, [])
+    setCollection(getCollection())
+  }, [nfts, end])
 
   return (
     <div>
@@ -153,8 +198,34 @@ function App() {
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
       )}
+      <div >
+        {collection?.length > 0 ? collection.map((nft, i) => (
+          <NFTCard key={i} nft={nft} />
+        ))
+          : <h4 >'No Artworks Yet' </h4>}
+
+
+      </div>
     </div>
+
+
   );
 }
+
+const NFTCard = ({ nft }) => {
+  return (
+    <Card>
+      <Card.Img variant="top" src={nft.metadataURI} alt={nft.title} />
+      <Card.Body>
+        <Card.Title>{nft.title}</Card.Title>
+        <Card.Text>
+          {nft.description}
+        </Card.Text>
+      </Card.Body>
+    </Card>
+  )
+}
+
+
 
 export default App;
