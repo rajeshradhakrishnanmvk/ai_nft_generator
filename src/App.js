@@ -7,11 +7,10 @@ import axios from 'axios';
 // Components
 import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
-import Card from 'react-bootstrap/Card';
 
 // ABIs
-import NFT from './abis/RoyaltyNFT.json'
-import Marketplace from './abis/Marketplace.json'
+import RoyaltyNFT from './abis/RoyaltyNFT.json'
+
 
 // Config
 import config from './config.json';
@@ -20,20 +19,19 @@ function App() {
   const [provider, setProvider] = useState(null)
   const [account, setAccount] = useState(null)
   const [nft, setNFT] = useState(null)
-  const [nfts, setNFTS] = useState(null)
-  const [marketplace, setMarketplace] = useState(null)
 
+  const [buyer, setBuyer] = useState("")
+  const [artist, setArtist] = useState("")
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [cost, setSP] = useState("")
+
   const [image, setImage] = useState(null)
   const [url, setURL] = useState(null)
 
   const [message, setMessage] = useState("")
   const [isWaiting, setIsWaiting] = useState(false)
 
-  const [end, setEnd] = useState(4)
-  const [count] = useState(4)
-  const [collection, setCollection] = useState([])
 
   const loadBlockchainData = async () => {
     const provider = new ethers.providers.Web3Provider(window.ethereum)
@@ -41,49 +39,26 @@ function App() {
 
     const network = await provider.getNetwork()
 
-    const nft = new ethers.Contract(config[network.chainId].nft.address, NFT, provider)
+    const nft = new ethers.Contract(config[network.chainId].nft.address, RoyaltyNFT, provider)
     setNFT(nft)
 
-    const marketplace = new ethers.Contract(config[network.chainId].marketplace.address, Marketplace, provider)
-    setNFT(marketplace)
-
-    getAllNFTs()
-  }
-
-  const structuredNfts = (nfts) => {
-    return nfts
-      .map((nft) => ({
-        id: Number(nft.id),
-        owner: nft.owner.toLowerCase(),
-        cost: window.web3.utils.fromWei(nft.cost),
-        title: nft.title,
-        description: nft.description,
-        metadataURI: nft.metadataURI,
-        timestamp: nft.timestamp,
-      }))
-      .reverse()
-  }
-
-  const getAllNFTs = async () => {
-    try {
-
-      const nfts = await nft.getAllNFTs().call()
-
-      setNFTS(structuredNfts(nfts))
-
-    } catch (error) {
-      reportError(error)
-    }
-  }
-  const getCollection = () => {
-    return nfts?.slice(0, end)
   }
 
   const submitHandler = async (e) => {
     e.preventDefault()
 
+
+    if (buyer === "" || artist === "") {
+      window.alert("Please provide a Buyer and an Artist address")
+      return
+    }
     if (name === "" || description === "") {
       window.alert("Please provide a name and description")
+      return
+    }
+
+    if (cost === "") {
+      window.alert("Please provide a Selling Price")
       return
     }
 
@@ -96,7 +71,7 @@ function App() {
     const url = await uploadImage(imageData)
 
     // Mint NFT
-    await mintImage(url, name, description)
+    await mintImage(buyer, artist, url, name, description, cost)
 
     setIsWaiting(false)
     setMessage("")
@@ -127,8 +102,27 @@ function App() {
     const data = response.data
 
     const base64data = Buffer.from(data).toString('base64')
+
     const img = `data:${type};base64,` + base64data // <-- This is so we can render it on the page
     setImage(img)
+
+    try {
+      const response = await fetch('http://localhost:3000/save-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageData: img }),
+      });
+
+      if (response.ok) {
+        console.log('Image saved successfully');
+      } else {
+        console.error('Image save failed');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
 
     return data
   }
@@ -153,20 +147,17 @@ function App() {
     return url
   }
 
-  const mintImage = async (tokenURI, title, description) => {
+  const mintImage = async (buyer, artist, tokenURI, title, description, cost) => {
     setMessage("Waiting for Mint...")
 
     const signer = await provider.getSigner()
-    //.mintNFTWithRoyalty(deployer.address, METADATA_URL, artist.address, ROYALTY_FEE, { value: COST })
-    //const transaction = await nft.connect(signer).mint(tokenURI, { value: ethers.utils.parseUnits("1", "ether") })
-    const transaction = await nft.connect(signer).mintNFTWithRoyalty(signer.address, tokenURI, signer.address, 500, title, description, { value: ethers.utils.parseUnits("1", "ether") })
+    const transaction = await nft.connect(signer).mintNFTWithRoyalty(buyer, tokenURI, artist, cost, title, description, { value: ethers.utils.parseUnits("1", "ether") })
     await transaction.wait()
   }
 
   useEffect(() => {
     loadBlockchainData()
-    setCollection(getCollection())
-  }, [nfts, end])
+  }, [])
 
   return (
     <div>
@@ -174,8 +165,11 @@ function App() {
 
       <div className='form'>
         <form onSubmit={submitHandler}>
+          <input type="text" placeholder="Buyer address..." onChange={(e) => { setBuyer(e.target.value) }} />
+          <input type="text" placeholder="Artist address..." onChange={(e) => { setArtist(e.target.value) }} />
           <input type="text" placeholder="Create a name..." onChange={(e) => { setName(e.target.value) }} />
           <input type="text" placeholder="Create a description..." onChange={(e) => setDescription(e.target.value)} />
+          <input type="text" placeholder="Selling Price..." onChange={(e) => { setSP(e.target.value) }} />
           <input type="submit" value="Create & Mint" />
         </form>
 
@@ -198,34 +192,10 @@ function App() {
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
       )}
-      <div >
-        {collection?.length > 0 ? collection.map((nft, i) => (
-          <NFTCard key={i} nft={nft} />
-        ))
-          : <h4 >'No Artworks Yet' </h4>}
-
-
-      </div>
     </div>
 
 
   );
 }
-
-const NFTCard = ({ nft }) => {
-  return (
-    <Card>
-      <Card.Img variant="top" src={nft.metadataURI} alt={nft.title} />
-      <Card.Body>
-        <Card.Title>{nft.title}</Card.Title>
-        <Card.Text>
-          {nft.description}
-        </Card.Text>
-      </Card.Body>
-    </Card>
-  )
-}
-
-
 
 export default App;
