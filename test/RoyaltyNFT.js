@@ -87,5 +87,10 @@ describe("RoyaltyNFT", () => {
       expect(tokenRoyaltyInfo[0], "Royalty receiver has not been set back to default").to.be.equal(owner);
       expect(tokenRoyaltyInfo[1].toNumber(), "Royalty has not been set back to default").to.be.equal(10);
     })
+    it("returns the minted collection", async() =>{
+      const result = await nft.getAllNFTs()
+      //console.log(result)
+      expect(result[0].title).to.be.equal('Monkey shoe')
+    })
   })
 })

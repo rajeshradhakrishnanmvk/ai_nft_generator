@@ -7,6 +7,7 @@ import axios from 'axios';
 // Components
 import Spinner from 'react-bootstrap/Spinner';
 import Navigation from './components/Navigation';
+import CardCollection from './components/CardCollection';
 
 // ABIs
 import RoyaltyNFT from './abis/RoyaltyNFT.json'
@@ -20,6 +21,7 @@ function App() {
   const [account, setAccount] = useState(null)
   const [nft, setNFT] = useState(null)
 
+
   const [buyer, setBuyer] = useState("")
   const [artist, setArtist] = useState("")
   const [name, setName] = useState("")
@@ -32,6 +34,34 @@ function App() {
   const [message, setMessage] = useState("")
   const [isWaiting, setIsWaiting] = useState(false)
 
+  const [showCollection, setShowCollection] = useState(false);
+  const [items, setItems] = useState(null)
+
+  const convertIPFSLink = (ipfsLink) => {
+    return ipfsLink.replace('ipfs://', 'https://ipfs.io/ipfs/');
+  };
+
+  const structuredNfts = async (nfts) => {
+    const modifiedNfts = [];
+  
+    for (const nft of nfts) {
+      const response = await fetch(nft.metadataURI);
+      const jsonData = await response.json();
+      const modifiedNft = {
+        id: Number(nft.id),
+        owner: nft.owner.toLowerCase(),
+        cost: ethers.utils.formatEther(nft.cost),
+        title: nft.title,
+        description: nft.description,
+        metadataURI: convertIPFSLink(jsonData.image), // Replace metadataURI with the "image" value from the JSON file
+        timestamp: nft.timestamp,
+      };
+      modifiedNfts.push(modifiedNft);
+    }
+  
+    return modifiedNfts.reverse();
+  };
+  
 
   const loadBlockchainData = async () => {
     const provider = new ethers.providers.Web3Provider(window.ethereum)
@@ -42,6 +72,9 @@ function App() {
     const nft = new ethers.Contract(config[network.chainId].nft.address, RoyaltyNFT, provider)
     setNFT(nft)
 
+    const nfts = await nft.getAllNFTs()
+    setItems(await structuredNfts(nfts))
+    setShowCollection(true);
   }
 
   const submitHandler = async (e) => {
@@ -192,6 +225,8 @@ function App() {
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
       )}
+
+      {showCollection && <CardCollection items={items} />}
     </div>
 
 

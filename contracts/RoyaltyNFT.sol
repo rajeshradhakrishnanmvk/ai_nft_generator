@@ -7,6 +7,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract RoyaltyNFT is ERC721URIStorage, ERC2981, Ownable {
+    // Using Strings lib for `_tokenId.toString()` in `tokenURI`
+    // If your tokenID doesn't need to be concatenated to the baseURI then this isn't needed
+    using Strings for uint256;
+
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
@@ -41,7 +45,7 @@ contract RoyaltyNFT is ERC721URIStorage, ERC2981, Ownable {
 
     function supportsInterface(
         bytes4 interfaceId
-    ) public view virtual override(ERC721, ERC2981) returns (bool) {
+    ) public view virtual override(ERC2981, ERC721URIStorage) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
