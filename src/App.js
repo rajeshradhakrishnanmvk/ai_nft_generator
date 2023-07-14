@@ -225,8 +225,10 @@ function App() {
           View&nbsp;<a href={url} target="_blank" rel="noreferrer">Metadata</a>
         </p>
       )}
-
-      {showCollection && <CardCollection items={items} />}
+      <div id='collection'>
+        {showCollection && <CardCollection items={items} />}
+      </div>
+      
     </div>
 
 
